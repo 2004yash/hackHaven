@@ -1,108 +1,131 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import Phaser from "phaser";
 
 const HallPage = () => {
+    const gameRef = useRef(null);
+
     useEffect(() => {
+        if (!gameRef.current) return;
+
         const config = {
             type: Phaser.AUTO,
-            width: window.innerWidth, // Responsive width
-            height: window.innerHeight, // Responsive height
-            parent: "phaser-container",
+            width: window.innerWidth,
+            height: window.innerHeight,
+            parent: gameRef.current,
             physics: {
                 default: "arcade",
-                arcade: {
-                    debug: false, // Enable this for debugging collisions
-                },
+                arcade: { debug: true },
             },
-            scene: {
-                preload,
-                create,
-                update,
-            },
+            scene: { preload, create, update },
         };
 
         const game = new Phaser.Game(config);
 
         function preload() {
-            // Load assets
-            this.load.image("tiles", "/assets/maps.png"); // Updated path
-            this.load.tilemapTiledJSON("map", "/assets/jsonMAP3.tmj"); // Updated path
-            this.load.image("character", "/assets/leonardo.png"); // Updated path
+            try {
+                this.load.image("tiless", "/assets/maps1.png");
+                this.load.tilemapTiledJSON("map", "/assets/jsonMAP3.tmj");
+                this.load.image("character", "/assets/leonardo.png");
+            } catch (error) {
+                console.error("Error loading assets:", error);
+            }
         }
 
         function create() {
-            // Load the map
-            this.add.image("tiles")
-            const map = this.make.tilemap({ key: "map" });
-            const tileset = map.addTilesetImage("tile1", "tiles"); // Updated tileset name
+            try {
+                // Center background image with original aspect ratio
+                const bg = this.add.image(0, 0, "tiless").setOrigin(0);
+                bg.setScale(Math.min(window.innerWidth / bg.width, window.innerHeight / bg.height));
 
-            // Layer names based on the updated list
-            const layerNames = [
-                // "tile1",        // Updated layer names
-                "obs",
-                "statue",
-                "tile4",
-                "tile5",
-                "tile6",
-                "tile7"
-            ];
+                // Load map and layers
+                const map = this.make.tilemap({ key: "map" });
+                const tileset = map.addTilesetImage("tile1", "tiless");
 
-            // Create layers dynamically
-            const layers = {};
-            layerNames.forEach(layerName => {
-                layers[layerName] = map.createLayer(layerName, tileset, 0, 0);
-            });
+                const layers = {};
+                ["obs", "statue", "tile4", "tile5", "tile6", "tile7"].forEach((layerName) => {
+                    layers[layerName] = map.createLayer(layerName, tileset, 0, 0);
+                });
 
-            // Create and handle collision for the "obs" layer
-            const collisionLayer = layers["obs"]; // Use the updated layer name for collision
-            collisionLayer.setCollisionByProperty({ collides: true });
+                const collisionLayer = layers["obs"];
+                collisionLayer?.setCollisionByProperty({ collides: true });
 
-            // Add a character sprite
-            this.character = this.physics.add.sprite(400, 300, "character");
-            this.character.setCollideWorldBounds(true);
+                // Add character sprite
+                this.character = this.physics.add.sprite(
+                    window.innerWidth / 2,
+                    window.innerHeight / 2,
+                    "character"
+                );
+                this.character.setScale(0.2); // Smaller character
+                this.character.setCollideWorldBounds(true);
 
-            // Enable collision between character and the collision layer
-            this.physics.add.collider(this.character, collisionLayer);
+                // Enable collision with collision layer
+                if (collisionLayer) {
+                    this.physics.add.collider(this.character, collisionLayer);
+                }
 
-            // Add keyboard controls
-            this.cursors = this.input.keyboard.createCursorKeys();
+                // Add keyboard controls
+                this.cursors = this.input.keyboard.createCursorKeys();
+
+                // Camera follows the character
+                this.cameras.main.startFollow(this.character, true, 0.05, 0.05);
+                this.cameras.main.setZoom(1.5);
+            } catch (error) {
+                console.error("Error in create function:", error);
+            }
         }
 
         function update() {
-            // Handle character movement
-            const speed = 200; // Adjust movement speed
+            const speed = 200;
             this.character.setVelocity(0);
 
-            if (this.cursors.left.isDown) {
-                this.character.setVelocityX(-speed);
-            } else if (this.cursors.right.isDown) {
-                this.character.setVelocityX(speed);
-            }
-
-            if (this.cursors.up.isDown) {
-                this.character.setVelocityY(-speed);
-            } else if (this.cursors.down.isDown) {
-                this.character.setVelocityY(speed);
-            }
+            if (this.cursors.left.isDown) this.character.setVelocityX(-speed);
+            if (this.cursors.right.isDown) this.character.setVelocityX(speed);
+            if (this.cursors.up.isDown) this.character.setVelocityY(-speed);
+            if (this.cursors.down.isDown) this.character.setVelocityY(speed);
         }
 
-        // Clean up Phaser instance on component unmount
+        const resizeGame = () => {
+            if (game) {
+                game.scale.resize(window.innerWidth, window.innerHeight);
+            }
+        };
+
+        window.addEventListener("resize", resizeGame);
+
         return () => {
+            window.removeEventListener("resize", resizeGame);
             game.destroy(true);
         };
     }, []);
 
     return (
         <div>
-            <h1 style={{ textAlign: "center" }}>Hackathon Hall</h1>
+            <h1
+                style={{
+                    textAlign: "center",
+                    position: "absolute",
+                    top: "10px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "rgba(0, 0, 0, 0.5)",
+                    color: "white",
+                    padding: "10px 20px",
+                    borderRadius: "8px",
+                    zIndex: 10,
+                }}
+            >
+                Hackathon Hall
+            </h1>
             <div
-                id="phaser-container"
+                ref={gameRef}
                 style={{
                     width: "100%",
-                    height: "calc(100vh - 50px)", // Dynamically adjust height
-                    margin: "auto",
+                    height: "100vh",
+                    margin: 0,
+                    padding: 0,
+                    overflow: "hidden",
                 }}
-            ></div>
+            />
         </div>
     );
 };
