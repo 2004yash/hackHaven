@@ -103,6 +103,9 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 }
 func sendCurrentOtherPlayerDetails(currentConn *websocket.Conn, room *services.Room) {
 	for conn := range room.Participants {
+		if conn == currentConn {
+			continue
+		}
 		message := ParticipantMessage{
 			Type: "join",
 			ID:   room.Participants[conn].ID,
