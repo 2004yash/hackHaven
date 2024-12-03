@@ -7,9 +7,12 @@ import (
 )
 
 type Participant struct {
-	Active bool // Indicates whether the participant is active or not
-	ID     int  // Participant's ID
+	Active bool
+	ID     int
+	X      float64 // Add X for coordinates
+	Y      float64 // Add Y for coordinates
 }
+
 type Room struct {
 	ID           string
 	Participants map[*websocket.Conn]Participant

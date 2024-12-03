@@ -1,10 +1,11 @@
 package services
 
 import (
-	"fmt"
-	services "hackathon-platform/backend/models"
+	"encoding/json"
 	"log"
 	"net/http"
+
+	services "hackathon-platform/backend/models"
 
 	"github.com/gorilla/websocket"
 )
@@ -18,10 +19,12 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// Client represents a single connection
-type Client struct {
-	Conn *websocket.Conn
-	Send chan []byte
+// ParticipantMessage represents a message for participant actions
+type ParticipantMessage struct {
+	Type string  `json:"type"` // "move", "join", or "leave"
+	ID   int     `json:"id"`
+	X    float64 `json:"x,omitempty"` // X coordinate (optional for non-move messages)
+	Y    float64 `json:"y,omitempty"` // Y coordinate (optional for non-move messages)
 }
 
 // HandleWebSocket establishes a WebSocket connection
@@ -40,23 +43,25 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	room := services.GetRoom(roomID)
+
 	// Add participant to the room
 	room.Mutex.Lock()
-	// Create a new participant and add to the room's Participants map
 	participant := services.Participant{
 		Active: true,
-		ID:     participantID, // Here, we're using the room ID as the participant ID for simplicity
+		ID:     participantID,
+		X:      0, // Default initial position
+		Y:      0, // Default initial position
 	}
 	room.Participants[conn] = participant
 	participantID++
-	sendPlayerJoinMessage(conn, participantID, room)
+	sendPlayerJoinMessage(conn, participant.ID, room)
 	room.Mutex.Unlock()
 
 	// Handle participant communication
 	defer func() {
 		// Remove participant on disconnect
 		room.Mutex.Lock()
-		sendPlayerLeaveMessage(conn, room.Participants[conn].ID, room)
+		sendPlayerLeaveMessage(participant.ID, room)
 		delete(room.Participants, conn)
 		room.Mutex.Unlock()
 		conn.Close()
@@ -69,62 +74,84 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		// Broadcast message to the room
-		room.Mutex.Lock()
-		for participant := range room.Participants {
-			if err := participant.WriteMessage(websocket.TextMessage, msg); err != nil {
-				participant.Close()
-				delete(room.Participants, participant)
-			}
-		}
-		room.Mutex.Unlock()
-	}
-}
-
-// ReadPump handles incoming messages
-func (c *Client) ReadPump() {
-	defer c.Conn.Close()
-	for {
-		_, msg, err := c.Conn.ReadMessage()
+		// Parse the message
+		var message ParticipantMessage
+		err = json.Unmarshal(msg, &message)
 		if err != nil {
-			log.Println("Read Error:", err)
-			break
-		}
-		log.Println("Received:", string(msg))
-	}
-}
-
-// WritePump sends messages to the client
-func (c *Client) WritePump() {
-	defer c.Conn.Close()
-	for msg := range c.Send {
-		err := c.Conn.WriteMessage(websocket.TextMessage, msg)
-		if err != nil {
-			log.Println("Write Error:", err)
-			break
-		}
-	}
-}
-func sendPlayerJoinMessage(currentconn *websocket.Conn, playerCount int, room *services.Room) {
-	message := fmt.Sprintf("player %d joined", playerCount)
-	for conn := range room.Participants {
-		if conn == currentconn {
+			log.Println("Error unmarshalling message:", err)
 			continue
 		}
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+
+		// Handle the message type
+		if message.Type == "move" {
+			room.Mutex.Lock()
+			participant := room.Participants[conn]
+			participant.X = message.X
+			participant.Y = message.Y
+			room.Participants[conn] = participant
+			broadcastMovementMessage(participant.ID, message.X, message.Y, room)
+			room.Mutex.Unlock()
+		}
+	}
+}
+
+// Send join message to all participants except the sender
+func sendPlayerJoinMessage(currentConn *websocket.Conn, playerID int, room *services.Room) {
+	message := ParticipantMessage{
+		Type: "join",
+		ID:   playerID,
+	}
+	broadcastMessageExcept(message, currentConn, room)
+}
+
+// Send leave message to all participants
+func sendPlayerLeaveMessage(playerID int, room *services.Room) {
+	message := ParticipantMessage{
+		Type: "leave",
+		ID:   playerID,
+	}
+	broadcastMessage(message, room)
+}
+
+// Broadcast movement message to all participants
+func broadcastMovementMessage(playerID int, x, y float64, room *services.Room) {
+	message := ParticipantMessage{
+		Type: "move",
+		ID:   playerID,
+		X:    x,
+		Y:    y,
+	}
+	broadcastMessage(message, room)
+}
+
+// Broadcast a message to all participants
+func broadcastMessage(message ParticipantMessage, room *services.Room) {
+	data, err := json.Marshal(message)
+	if err != nil {
+		log.Println("Error marshalling message:", err)
+		return
+	}
+	for conn := range room.Participants {
+		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			log.Println("Error sending message:", err)
 			conn.Close()
 			delete(room.Participants, conn)
 		}
 	}
 }
-func sendPlayerLeaveMessage(currentconn *websocket.Conn, playerCount int, room *services.Room) {
-	message := fmt.Sprintf("player %d left", playerCount)
+
+// Broadcast a message to all participants except the sender
+func broadcastMessageExcept(message ParticipantMessage, excludeConn *websocket.Conn, room *services.Room) {
+	data, err := json.Marshal(message)
+	if err != nil {
+		log.Println("Error marshalling message:", err)
+		return
+	}
 	for conn := range room.Participants {
-		if conn == currentconn {
+		if conn == excludeConn {
 			continue
 		}
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			log.Println("Error sending message:", err)
 			conn.Close()
 			delete(room.Participants, conn)
