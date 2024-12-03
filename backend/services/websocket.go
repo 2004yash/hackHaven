@@ -56,6 +56,7 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	room.Participants[conn] = participant
 	participantID++
 	sendPlayerJoinMessage(conn, participant.ID, room)
+	sendCurrentOtherPlayerDetails(conn, room)
 	room.Mutex.Unlock()
 
 	// Handle participant communication
@@ -97,6 +98,26 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			room.Mutex.Lock()
 			broadcastMessage(message, room)
 			room.Mutex.Unlock()
+		}
+	}
+}
+func sendCurrentOtherPlayerDetails(currentConn *websocket.Conn, room *services.Room) {
+	for conn := range room.Participants {
+		message := ParticipantMessage{
+			Type: "join",
+			ID:   room.Participants[conn].ID,
+			X:    room.Participants[conn].X,
+			Y:    room.Participants[conn].Y,
+		}
+		data, err := json.Marshal(message)
+		if err != nil {
+			log.Println("Error marshalling message:", err)
+			return
+		}
+		if err := currentConn.WriteMessage(websocket.TextMessage, data); err != nil {
+			log.Println("Error sending message:", err)
+			currentConn.Close()
+			delete(room.Participants, currentConn)
 		}
 	}
 }
