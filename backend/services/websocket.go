@@ -21,10 +21,11 @@ var upgrader = websocket.Upgrader{
 
 // ParticipantMessage represents a message for participant actions
 type ParticipantMessage struct {
-	Type string  `json:"type"` // "move", "join", or "leave"
-	ID   int     `json:"id"`
-	X    float64 `json:"x,omitempty"` // X coordinate (optional for non-move messages)
-	Y    float64 `json:"y,omitempty"` // Y coordinate (optional for non-move messages)
+	Type    string  `json:"type"` // "move", "join", or "leave"
+	ID      int     `json:"id"`
+	X       float64 `json:"x,omitempty"` // X coordinate (optional for non-move messages)
+	Y       float64 `json:"y,omitempty"` // Y coordinate (optional for non-move messages)
+	Message string  `json:"msg,omitempty"`
 }
 
 // HandleWebSocket establishes a WebSocket connection
@@ -90,6 +91,11 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			participant.Y = message.Y
 			room.Participants[conn] = participant
 			broadcastMovementMessage(participant.ID, message.X, message.Y, room)
+			room.Mutex.Unlock()
+		}
+		if message.Type == "message" {
+			room.Mutex.Lock()
+			broadcastMessage(message, room)
 			room.Mutex.Unlock()
 		}
 	}
