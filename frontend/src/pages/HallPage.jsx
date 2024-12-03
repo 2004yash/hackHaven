@@ -1,8 +1,6 @@
 import React, { useEffect } from "react";
 import Phaser from "phaser";
 
-
-
 const HallPage = () => {
     useEffect(() => {
         const config = {
@@ -27,25 +25,43 @@ const HallPage = () => {
 
         function preload() {
             // Load assets
-            this.load.image("tiles", "/assets/map.png"); // Updated path
+            this.load.image("tiles", "/assets/maps.png"); // Updated path
             this.load.tilemapTiledJSON("map", "/assets/jsonMAP3.tmj"); // Updated path
             this.load.image("character", "/assets/leonardo.png"); // Updated path
         }
 
         function create() {
             // Load the map
+            this.add.image("tiles")
             const map = this.make.tilemap({ key: "map" });
-            const tileset = map.addTilesetImage("tilesetNameInTiled", "tiles"); // Adjust name based on Tiled file
-            const groundLayer = map.createLayer("Ground", tileset, 0, 0); // Layer name in Tiled
-            const collisionLayer = map.createLayer("Obstacles", tileset, 0, 0); // Collision layer name
+            const tileset = map.addTilesetImage("tile1", "tiles"); // Updated tileset name
 
-            collisionLayer.setCollisionByProperty({ collides: true }); // Use tile properties for collision
+            // Layer names based on the updated list
+            const layerNames = [
+                // "tile1",        // Updated layer names
+                "obs",
+                "statue",
+                "tile4",
+                "tile5",
+                "tile6",
+                "tile7"
+            ];
+
+            // Create layers dynamically
+            const layers = {};
+            layerNames.forEach(layerName => {
+                layers[layerName] = map.createLayer(layerName, tileset, 0, 0);
+            });
+
+            // Create and handle collision for the "obs" layer
+            const collisionLayer = layers["obs"]; // Use the updated layer name for collision
+            collisionLayer.setCollisionByProperty({ collides: true });
 
             // Add a character sprite
             this.character = this.physics.add.sprite(400, 300, "character");
             this.character.setCollideWorldBounds(true);
 
-            // Enable collision between character and collision layer
+            // Enable collision between character and the collision layer
             this.physics.add.collider(this.character, collisionLayer);
 
             // Add keyboard controls
