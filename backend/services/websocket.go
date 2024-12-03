@@ -106,6 +106,8 @@ func sendCurrentOtherPlayerDetails(currentConn *websocket.Conn, room *services.R
 		message := ParticipantMessage{
 			Type: "join",
 			ID:   room.Participants[conn].ID,
+			X:    room.Participants[conn].X,
+			Y:    room.Participants[conn].Y,
 		}
 		data, err := json.Marshal(message)
 		if err != nil {
