@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import Phaser from "phaser";
+import Collision from "./Collision"; // Import the Collision array
 
 const HallPage = () => {
     const gameRef = useRef(null);
+    const tileSize = 32; // Tile size in pixels
 
     useEffect(() => {
         if (!gameRef.current) return;
@@ -33,10 +35,6 @@ const HallPage = () => {
 
         function create() {
             try {
-                // Center background image with original aspect ratio
-                const bg = this.add.image(0, 0, "tiless").setOrigin(0);
-                bg.setScale(Math.min(window.innerWidth / bg.width, window.innerHeight / bg.height));
-
                 // Load map and layers
                 const map = this.make.tilemap({ key: "map" });
                 const tileset = map.addTilesetImage("tile1", "tiless");
@@ -55,13 +53,8 @@ const HallPage = () => {
                     window.innerHeight / 2,
                     "character"
                 );
-                this.character.setScale(0.2); // Smaller character
+                this.character.setScale(0.2);
                 this.character.setCollideWorldBounds(true);
-
-                // Enable collision with collision layer
-                if (collisionLayer) {
-                    this.physics.add.collider(this.character, collisionLayer);
-                }
 
                 // Add keyboard controls
                 this.cursors = this.input.keyboard.createCursorKeys();
@@ -76,12 +69,23 @@ const HallPage = () => {
 
         function update() {
             const speed = 200;
+            const characterX = Math.floor(this.character.x / tileSize);
+            const characterY = Math.floor(this.character.y / tileSize);
+
             this.character.setVelocity(0);
 
-            if (this.cursors.left.isDown) this.character.setVelocityX(-speed);
-            if (this.cursors.right.isDown) this.character.setVelocityX(speed);
-            if (this.cursors.up.isDown) this.character.setVelocityY(-speed);
-            if (this.cursors.down.isDown) this.character.setVelocityY(speed);
+            // Collision detection with Collision array
+            const isColliding = Collision[characterY]?.[characterX] !== 0;
+
+            if (!isColliding) {
+                if (this.cursors.left.isDown) this.character.setVelocityX(-speed);
+                if (this.cursors.right.isDown) this.character.setVelocityX(speed);
+                if (this.cursors.up.isDown) this.character.setVelocityY(-speed);
+                if (this.cursors.down.isDown) this.character.setVelocityY(speed);
+            } else {
+                // Optionally, you can handle collisions here (e.g., stop movement, log, etc.)
+                console.log("Collision detected at:", characterX, characterY);
+            }
         }
 
         const resizeGame = () => {
