@@ -91,7 +91,9 @@ const HallPage = () => {
             });
 
             // Set world bounds to match the tilemap's pixel size
-            this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+            this.physics.world.setBounds(0, 0, window.innerWidth/1.12, window.innerHeight/1.12);
+
+
 
             // Create the main character
             this.character = this.physics.add.sprite(
@@ -100,6 +102,7 @@ const HallPage = () => {
                 "character"
             );
             this.character.setScale(0.07);
+            this.character.setCollideWorldBounds(true);
 
             const collisionLayer = layers["obs"];
             if (collisionLayer) {
@@ -153,8 +156,9 @@ const HallPage = () => {
 
             participants.forEach(([id, { x, y }]) => {
                 const otherPlayer = this.physics.add.sprite(x, y, "otherCharacter");
-                otherPlayer.setScale(0.15);
+                otherPlayer.setScale(0.07);
                 this.participantsGroup.add(otherPlayer);
+                
             });
         }
 
