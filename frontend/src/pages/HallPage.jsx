@@ -79,7 +79,7 @@ const HallPage = () => {
         function create() {
             const bg = this.add.image(window.innerWidth / 2, window.innerHeight / 2, "tiless");
             bg.setDisplaySize(window.innerWidth, window.innerHeight);
-            bg.setScrollFactor(0);
+            bg.setScrollFactor(0); // Ensure the background stays fixed in place
 
             const map = this.make.tilemap({ key: "map" });
             const tileset = map.addTilesetImage("tile1", "tiless");
@@ -90,15 +90,16 @@ const HallPage = () => {
                 layers[layerName]?.setScale(1);
             });
 
+            // Set world bounds to match the tilemap's pixel size
             this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
-            // Create main character
+            // Create the main character
             this.character = this.physics.add.sprite(
                 window.innerWidth / 2,
                 window.innerHeight / 2,
                 "character"
             );
-            this.character.setScale(0.15);
+            this.character.setScale(0.07);
 
             const collisionLayer = layers["obs"];
             if (collisionLayer) {
@@ -111,13 +112,16 @@ const HallPage = () => {
 
             this.cursors = this.input.keyboard.createCursorKeys();
 
+            // Set up the camera to follow the character
             this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-            this.cameras.main.startFollow(this.character, true, 0.05, 0.05);
-            this.cameras.main.setZoom(1.5);
+            this.cameras.main.setZoom(1.1); // Adjust zoom level to fit the whole map
+            this.cameras.main.startFollow(this.character, true, 0.05, 0.05); // Follow the character
         }
 
         function update() {
             const speed = 200;
+
+            // Handle character movement based on keyboard input
             this.character.setVelocity(0);
 
             if (this.cursors.left.isDown) {
